@@ -1,59 +1,48 @@
-import json
-import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs
+export default async function handler(req, res) {
+  // 1. Tolak jika bukan request POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
-SECRET = "SKYBAGSDISTRICTB7"
-GAME = "PUBG"
+  try {
+    const SECRET = "SKYBAGSDISTRICTB7";
+    const GAME = "PUBG";
 
-class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # 1. Baca ukuran data yang masuk
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length).decode("utf-8", "replace")
-        
-        user_key = ""
-        serial = ""
-        
-        # 2. Deteksi otomatis format pengiriman data (JSON vs URL-encoded)
-        try:
-            # Coba parsing sebagai JSON
-            data = json.loads(body)
-            user_key = data.get("user_key", "")
-            serial = data.get("serial", "")
-        except json.JSONDecodeError:
-            # Jika gagal, fallback ke parsing form data standar
-            params = parse_qs(body)
-            user_key = params.get("user_key", [""])[0]
-            serial = params.get("serial", [""])[0]
+    let body = req.body || {};
 
-        # 3. Rakit token
-        now = int(time.time())
-        token = f"{GAME}-{user_key}-{serial}-{SECRET}"
-        
-        # Log terminal untuk memastikan data "caca" benar-benar masuk
-        print(f"[DEBUG] Terima POST -> body mentah: {body}")
-        print(f"[DEBUG] Terbaca -> user_key: {user_key} | serial: {serial}")
-        
-        # 4. Siapkan respons
-        resp = json.dumps({
-            "data": {
-                "token": token,
-                "rng": now + 300,
-                "EXP": now + 2592000
-            }
-        })
+    // 2. Deteksi otomatis format data (berjaga-jaga jika klien tidak mengirim header Content-Type dengan benar)
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        // Fallback: Parsing form-urlencoded jika bukan JSON
+        const params = new URLSearchParams(body);
+        body = Object.fromEntries(params);
+      }
+    }
 
-        # 5. Kirim balasan ke klien (Typo diperbaiki)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(resp)))
-        self.end_headers()
-        self.wfile.write(resp.encode("utf-8"))
+    // 3. Ambil data dari body
+    const user_key = body.user_key || "";
+    const serial = body.serial || "";
 
-# Tambahan: Blok untuk menjalankan server secara langsung
-if __name__ == "__main__":
-    port = 8080
-    server = HTTPServer(("0.0.0.0", port), handler)
-    print(f"Server berjalan di http://0.0.0.0:{port}...")
-    server.serve_forever()
+    // 4. Rakit token (Unix timestamp dalam detik)
+    const now = Math.floor(Date.now() / 1000);
+    const token = `${GAME}-${user_key}-${serial}-${SECRET}`;
+
+    // Log terminal di Vercel (bisa dilihat di tab "Logs" pada dashboard Vercel)
+    console.log(`[DEBUG] user_key: ${user_key} | serial: ${serial}`);
+
+    // 5. Kirim balasan JSON
+    return res.status(200).json({
+      data: {
+        token: token,
+        rng: now + 300,
+        EXP: now + 2592000
+      }
+    });
+
+  } catch (error) {
+    console.error("Crash pada handler:", error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
