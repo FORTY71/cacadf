@@ -1,42 +1,34 @@
 import json
-import time
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs
 
 
-SECRET = "SKYBAGSDISTRICTB7"
-GAME = "PUBG"
+def handler(request):
+    # Ambil parameter dari query
+    user_key = request.query.get("user_key", "")
+    serial = request.query.get("serial", "")
 
-
-class handler(BaseHTTPRequestHandler):
-
-    def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length).decode("utf-8", "replace")
-
-        params = parse_qs(body)
-
-        user_key = params.get("user_key", [""])[0]
-        serial = params.get("serial", [""])[0]
-
-        now = int(time.time())
-
-        token = f"{GAME}-{user_key}-{serial}-{SECRET}"
-
-        response = {
-            "status": "OK",
-            "data": {
-                "token": token,
-                "rng": now + 300,
-                "EXP": now + 2592000
-            }
+    if user_key == "caca":
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": json.dumps({
+                "status": "OK",
+                "message": "Key diterima",
+                "data": {
+                    "user_key": user_key,
+                    "serial": serial
+                }
+            })
         }
 
-        payload = json.dumps(response).encode("utf-8")
-
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-
-        self.wfile.write(payload)
+    return {
+        "statusCode": 401,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": json.dumps({
+            "status": "ERROR",
+            "message": "Invalid key"
+        })
+    }
