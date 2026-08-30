@@ -1,5 +1,9 @@
 {
   "version": 2,
-  "builds": [{ "src": "api/connect.py", "use": "@vercel/python" }],
-  "routes": [{ "src": "/connect", "dest": "/api/connect" }]
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/api/connect.py"
+    }
+  ]
 }
