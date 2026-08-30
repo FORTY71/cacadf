@@ -1,84 +1,59 @@
-const SECRET = "SKYBAGSDISTRICTB7";
-const GAME = "PUBG";
+import json
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs
 
-module.exports = async function handler(req, res) {
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Cache-Control", "no-store");
+SECRET = "SKYBAGSDISTRICTB7"
+GAME = "PUBG"
 
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Method Not Allowed"
-    });
-  }
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        # 1. Baca ukuran data yang masuk
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length).decode("utf-8", "replace")
+        
+        user_key = ""
+        serial = ""
+        
+        # 2. Deteksi otomatis format pengiriman data (JSON vs URL-encoded)
+        try:
+            # Coba parsing sebagai JSON
+            data = json.loads(body)
+            user_key = data.get("user_key", "")
+            serial = data.get("serial", "")
+        except json.JSONDecodeError:
+            # Jika gagal, fallback ke parsing form data standar
+            params = parse_qs(body)
+            user_key = params.get("user_key", [""])[0]
+            serial = params.get("serial", [""])[0]
 
-  try {
-    let user_key = "";
-    let serial = "";
+        # 3. Rakit token
+        now = int(time.time())
+        token = f"{GAME}-{user_key}-{serial}-{SECRET}"
+        
+        # Log terminal untuk memastikan data "caca" benar-benar masuk
+        print(f"[DEBUG] Terima POST -> body mentah: {body}")
+        print(f"[DEBUG] Terbaca -> user_key: {user_key} | serial: {serial}")
+        
+        # 4. Siapkan respons
+        resp = json.dumps({
+            "data": {
+                "token": token,
+                "rng": now + 300,
+                "EXP": now + 2592000
+            }
+        })
 
-    const contentType = String(
-      req.headers["content-type"] || ""
-    ).toLowerCase();
+        # 5. Kirim balasan ke klien (Typo diperbaiki)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp.encode("utf-8"))
 
-    // JSON
-    if (contentType.includes("application/json")) {
-      const body = req.body || {};
-
-      user_key = String(body.user_key || "").trim();
-      serial = String(body.serial || "").trim();
-    }
-
-    // application/x-www-form-urlencoded
-    else {
-      let rawBody = "";
-
-      if (typeof req.body === "string") {
-        rawBody = req.body;
-      } else if (Buffer.isBuffer(req.body)) {
-        rawBody = req.body.toString("utf8");
-      } else if (req.body && typeof req.body === "object") {
-        user_key = String(req.body.user_key || "").trim();
-        serial = String(req.body.serial || "").trim();
-      }
-
-      if (rawBody) {
-        const params = new URLSearchParams(rawBody);
-
-        user_key = String(
-          params.get("user_key") || ""
-        ).trim();
-
-        serial = String(
-          params.get("serial") || ""
-        ).trim();
-      }
-    }
-
-    /*
-     * Python asli tidak melakukan:
-     *
-     * if user_key == "..."
-     *
-     * Jadi jangan mengunci key tertentu di sini.
-     */
-
-    const now = Math.floor(Date.now() / 1000);
-
-    const token =
-      `${GAME}-${user_key}-${serial}-${SECRET}`;
-
-    return res.status(200).json({
-      data: {
-        token: token,
-        rng: now + 300,
-        EXP: now + 2592000
-      }
-    });
-
-  } catch (error) {
-    console.error("AUTH ERROR:", error);
-
-    return res.status(500).json({
-      error: "Internal Server Error"
-    });
-  }
-};
+# Tambahan: Blok untuk menjalankan server secara langsung
+if __name__ == "__main__":
+    port = 8080
+    server = HTTPServer(("0.0.0.0", port), handler)
+    print(f"Server berjalan di http://0.0.0.0:{port}...")
+    server.serve_forever()
