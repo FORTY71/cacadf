@@ -8,6 +8,9 @@ GAME = "PUBG"
 
 
 class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.do_POST()
+
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode("utf-8", "replace")
