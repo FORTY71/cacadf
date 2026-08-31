@@ -1,22 +1,29 @@
 import hashlib
 import time
 import json
+from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SECRET = "Vm8Lk7Uj2JmsjCPVPVjrLa7zgfx3uz9E"
 
-
 def build_response(user_key: str, serial: str) -> dict:
-    # client computes: MD5("MLBB" + "-" + serial + "-" + user_key + "-" + SECRET)
-    # order per disasm: sp+0x30 (serial arg) appended before sp+8 (user_key arg)
+    # 1. Bersihkan spasi atau karakter enter (\n) tak terlihat dari input
+    user_key = user_key.strip()
+    serial = serial.strip()
+
     raw = f"MLBB-{serial}-{user_key}-{SECRET}"
     token = hashlib.md5(raw.encode()).hexdigest()
+    
+    # 2. OPSI: Banyak aplikasi C++/Android mewajibkan hash MD5 dalam huruf besar.
+    # Jika setelah script ini dijalankan masih error, hilangkan tanda '#' di bawah ini:
+    # token = token.upper()
+
     now = int(time.time())
     return {
         "status": 1,
-        "data": "999999",          # EXP credited (string)
-        "token": token,            # must match client-side MD5 or login rejected
-        "rng": now,                # freshness value
+        "data": "999999",
+        "token": token,
+        "rng": now,
         "server_time": now,
         "reason": "",
     }
@@ -28,17 +35,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
+        
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length).decode(errors="replace")
-        params = {}
-        for part in body.split("&"):
-            if "=" in part:
-                k, v = part.split("=", 1)
-                params[k] = v
-        user_key = params.get("user_key", "")
-        serial = params.get("serial", "")
+        
+        # 3. PERBAIKAN: Gunakan parse_qs alih-alih split manual
+        # Ini mengatasi masalah URL-encoding dan karakter tersembunyi
+        params = parse_qs(body)
+        user_key = params.get("user_key", [""])[0]
+        serial = params.get("serial", [""])[0]
+        
         resp = build_response(user_key, serial)
         payload = json.dumps(resp).encode()
+        
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
@@ -46,17 +55,18 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self):
-        # convenience: /connect via GET returns the same shape (params in query)
-        from urllib.parse import urlparse, parse_qs
         if self.path.split("?")[0] != "/connect":
             self.send_response(404)
             self.end_headers()
             return
+        
         q = parse_qs(urlparse(self.path).query)
         user_key = q.get("user_key", [""])[0]
         serial = q.get("serial", [""])[0]
+        
         resp = build_response(user_key, serial)
         payload = json.dumps(resp).encode()
+        
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
@@ -68,4 +78,5 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    print("Server berjalan di port 3000...")
     ThreadingHTTPServer(("0.0.0.0", 3000), Handler).serve_forever()
