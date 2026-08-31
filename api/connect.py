@@ -16,7 +16,7 @@ def build_response(user_key: str, serial: str) -> dict:
     
     # 2. OPSI: Banyak aplikasi C++/Android mewajibkan hash MD5 dalam huruf besar.
     # Jika setelah script ini dijalankan masih error, hilangkan tanda '#' di bawah ini:
-    # token = token.upper()
+    token = token.upper()
 
     now = int(time.time())
     return {
