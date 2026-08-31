@@ -1,6 +1,23 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/api/connect" },
-    { "source": "/connect", "destination": "/api/connect" }
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/server.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/melz.json",
+      "dest": "/melz.json"
+    },
+    {
+      "src": "/seller.json",
+      "dest": "/seller.json"
+    },
+    {
+      "src": "/connect",
+      "dest": "/api/server.py"
+    }
   ]
 }
