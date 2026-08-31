@@ -1,9 +1,6 @@
 {
-  "version": 2,
   "rewrites": [
-    {
-      "source": "/",
-      "destination": "/api/connect"
-    }
+    { "source": "/", "destination": "/api/connect" },
+    { "source": "/connect", "destination": "/api/connect" }
   ]
 }
